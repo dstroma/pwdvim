@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+sub prompt {
+	print for @_;
+	my $resp = <STDIN>;
+	chomp $resp;
+	return $resp;
+}
+
+my $arg = $ARGV[0];
+unless ($arg) {
+	die "Usage: \n" . 
+        "  pwdvim [filename]\n"
+	;
+}
+
+my $enc_filename   = $arg;
+my ($org_filename) = ($arg =~ m/^(.+)\.zip$/);
+my $md5_original;
+my $file_is_new;
+
+if (-e $enc_filename) {
+	# Decrypt, calculate hash
+    # -n = never overwrite existing files
+    # -j = junk dir (do not create directories)
+	my $result = system qq`unzip -n -j "$enc_filename" "$org_filename"`;
+	unless ($result == 0) {
+		print "Call to unzip returned with error code $result\n";
+		print "Unzip or decrypt failed.\n";
+		print "Operation canceled.\n";
+		exit -1;
+	}
+	$md5_original = `md5 $org_filename`;
+} else {
+	my $resp = prompt "File $enc_filename does not exist. Create it? [Y/N] ";
+	unless (uc $resp eq 'Y') {
+		print "Operation canceled.\n";
+		exit 0;
+	}
+	$file_is_new = 1;
+	$org_filename = $enc_filename;
+	$enc_filename = "$org_filename.zip";
+}
+
+# Open
+system("vim $org_filename");
+
+# Encrypt and delete decrypted
+if ($file_is_new and not -e $org_filename) {
+	print "New file not saved. Nothing to do.\n";
+	exit 0;
+} elsif (not -e $org_filename) {
+	print "Error, tempfile missing.\n";
+	exit -1;
+}
+
+if (!$file_is_new and `md5 $org_filename` eq $md5_original) {
+	print "No changes.\n";
+} else {
+	my $result;
+	my $try_again;
+	do {
+		$result = system qq`zip -e "$enc_filename" "$org_filename"`;
+		unless ($result == 0) {
+			print "Call to zip returned with error code $result.\n";
+			print "Encrypt or zip failed.\n";
+			my $resp = prompt "[T]ry again? ";
+			$try_again = uc $resp eq 'T';
+		}
+	} while ($result != 0 and $try_again);
+}
+
+unless (system(qq|rm $org_filename|) == 0) {
+	print "Could not remove tempfile $org_filename\n";
+}
+
+exit 0;
