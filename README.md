@@ -1,2 +1,7 @@
 # pwdvim
-Edit an encrypted zip file with vim
+Edit a password-protected encrypted zip file with vim.
+
+Usage:
+  pwdvim [filename]					unzip, edit, re-zip
+  pwdvim -z [filename]				(z)ip and encrypt plain file
+  pwdvim -w [editor] [filename]		edit (w)ith [editor] instead of vim
